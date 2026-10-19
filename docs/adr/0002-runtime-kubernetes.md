@@ -38,3 +38,12 @@
 - `colima status`、`docker version`、`kubectl get nodes`（若启用）有输出。
 - K8s 系统 Pod 状态与镜像来源/digest 记录。
 - 不依赖 Docker Hub；所有镜像来源可追溯。
+
+## 实施结果（2026-10-20）
+
+- Colima 0.10.3 + Lima 2.2.1（VZ）已运行；镜像 SHA512 校验通过。
+- 未使用 Colima 内置 `--kubernetes`（避免 GitHub k3s 下载与 Docker Hub 系统镜像）；改为在 VM 内手动启动 k3s v1.35.0+k3s1：
+  - 从 `ghcr.io/k3s-io/k3s` 镜像提取 arm64 二进制与 CNI 插件；
+  - Rancher 镜像的 airgap 镜像包（SHA256 校验）；
+  - SSH 隧道暴露 API 到 `127.0.0.1:16443`。
+- 该路径已验证：节点 Ready、Argo CD/应用 Pod 运行。限制见 `docs/verification/environment-limitations.md`。

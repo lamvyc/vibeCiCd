@@ -43,3 +43,10 @@
 - 镜像能启动并返回 HTML/健康/版本/指标；非 root；无应用源码/密钥。
 - PR 构建不改 GitOps、不 push 镜像；main 才发布。
 - 静态子路径回退有测试；`/api/*` 404 不返回 index.html。
+
+## 实施结果（2026-10-20）
+
+- 应用仓库未修改；Gitea 托管克隆；CI 使用 pnpm 9.15.0 / Node 24.18.0，538 tests 通过。
+- 镜像 = Go 静态服务器 + `packages/playground/dist`，scratch、非 root；最终 digest 见 `docs/versions.lock.md`。
+- Gitea 迁入 Colima VM（host network），使 Argo CD 可访问；宿主 Jenkins 通过 SSH local forward 访问。
+- Webhook 受沙箱 egress 限制，使用 Gitea API 轮询桥作为自动触发回退。

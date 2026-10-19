@@ -40,3 +40,10 @@
 - 漂移被检测并自愈；同步失败/健康失败可定位。
 - git revert 实际执行并验证版本恢复。
 - 不使用 NodePort 固定 IP/跳过 TLS/弱口令等课程做法。
+
+## 实施结果（2026-10-20）
+
+- Argo CD v3.5.5（Helm chart 10.10.5）已部署；Application `lowcode-dev` 自动同步、`prune/selfHeal`。
+- CI 通过 Kustomize 写入 `tag@digest`；Argo CD 拉取并部署；部署验证脚本通过。
+- 漂移自愈、同步失败识别、`git revert` 回滚均已实际执行。
+- Argo CD 默认 3 分钟轮询；Jenkins 在 GitOps push 后主动 annotate refresh。

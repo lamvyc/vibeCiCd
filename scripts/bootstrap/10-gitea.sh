@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# NOTE: first-time data initialization only. The running lab uses the Gitea
+# container in the VM (15-gitea-container.sh); run 10, stop native, then 15.
 # Start Gitea (native, SQLite) and create the local users/org/repos/tokens.
 # Idempotent: existing users, repos and tokens are reused.
 set -euo pipefail

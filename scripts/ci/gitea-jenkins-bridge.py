@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import fcntl
 import http.cookiejar
 import json
 import os
@@ -160,6 +161,14 @@ def main() -> int:
     if not JENKINS_PASS:
         print("JENKINS_ADMIN_PASSWORD is required", file=sys.stderr)
         return 2
+
+    # Single-instance lock: overlapping processes would trigger duplicate builds.
+    lock_file = (ROOT / ".runtime" / "bridge.lock").open("w")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("another bridge instance is already running", file=sys.stderr)
+        return 0
 
     jenkins = Jenkins()
     state = load_state()
