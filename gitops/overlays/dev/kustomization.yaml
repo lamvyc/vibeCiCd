@@ -4,14 +4,10 @@ namespace: lowcode-dev
 resources:
 - ../../base
 images:
-- digest: sha256:d10f0b0da7bc22ce697be9803421759b5d2b19d05a57e222e03534bbf4ba21ec
-  name: localhost:5001/lowcode-platform
-  newName: localhost:5001/lowcode-platform
-  newTag: sha-51de0d5e2bff
-- digest: sha256:31dec43568879594eb6456f5aa35b1ed6bd32956de30e5e0fe2dc7167c94b6ac
-  name: lowcode-platform
-  newName: localhost:5001/lowcode-platform
-  newTag: sha-3e9cb2f34287
+  - name: localhost:5001/lowcode-platform
+    newName: localhost:5001/lowcode-platform
+    newTag: sha-3e9cb2f34287
+    digest: sha256:31dec43568879594eb6456f5aa35b1ed6bd32956de30e5e0fe2dc7167c94b6ac
 patches:
 - patch: |-
     - op: replace

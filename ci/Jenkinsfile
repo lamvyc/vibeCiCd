@@ -248,7 +248,7 @@ pipeline {
             cd .runtime/gitops-ws
             git config user.name "jenkins-ci"
             git config user.email "jenkins-ci@example.local"
-            (cd gitops/overlays/dev && kustomize edit set image "$APP_NAME=$IMAGE_REPO:$IMAGE_TAG@${digest#*@}")
+            (cd gitops/overlays/dev && kustomize edit set image "$IMAGE_REPO=$IMAGE_REPO:$IMAGE_TAG@${digest#*@}")
             if git diff --quiet; then
               echo "no GitOps change"
               exit 0

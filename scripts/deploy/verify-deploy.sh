@@ -4,7 +4,6 @@
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 source "$ROOT/versions.env"
-load_env
 
 ENV_NAME="${1:?usage: verify-deploy.sh <dev|prod> <sha> <tag>}"
 EXPECTED_SHA="${2:?expected app sha required}"
