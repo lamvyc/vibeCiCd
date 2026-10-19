@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lowcode-web-config
+data:
+  APP_ENV: dev
+  LOG_LEVEL: info

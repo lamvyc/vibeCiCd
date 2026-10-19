@@ -148,7 +148,7 @@ add_collaborator() {
   log "collaborator ${user} -> ${repo} (${permission})"
   gitea_api PUT "/repos/lowcode/${repo}/collaborators/${user}" "{\"permission\":\"${permission}\"}" >/dev/null
 }
-add_collaborator lowcode-platform "$GITEA_CI_USER" read
+add_collaborator lowcode-platform "$GITEA_CI_USER" write
 add_collaborator vibe-cicd "$GITEA_CI_USER" write
 add_collaborator vibe-cicd "$GITEA_ARGOCD_USER" read
 

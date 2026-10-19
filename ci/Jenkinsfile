@@ -165,12 +165,12 @@ pipeline {
           test -z "$(gofmt -l .)" || { echo "gofmt needed"; gofmt -l .; exit 1; }
           go vet ./...
           go test ./... -count=1
-          cd "$WORKSPACE"
-          mkdir -p .runtime/image-context
-          rm -rf .runtime/image-context/server .runtime/image-context/static
+          mkdir -p "$WORKSPACE/.runtime/image-context"
+          rm -rf "$WORKSPACE/.runtime/image-context/server" "$WORKSPACE/.runtime/image-context/static"
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -buildvcs=false \
             -ldflags "-s -w -X main.version=${IMAGE_TAG} -X main.commit=${APP_SHA_RESOLVED} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o .runtime/image-context/server ./platform/server
+            -o "$WORKSPACE/.runtime/image-context/server" .
+          cd "$WORKSPACE"
           cp -R app/packages/playground/dist .runtime/image-context/static
           printf '*\\n!server\\n!static\\n' > .runtime/image-context/.dockerignore
           file .runtime/image-context/server

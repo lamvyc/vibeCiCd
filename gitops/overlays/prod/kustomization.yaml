@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lowcode-prod
+resources:
+  - ../../base
+images:
+  - name: localhost:5001/lowcode-platform
+    newTag: dev
+patches:
+  - target:
+      kind: ConfigMap
+      name: lowcode-web-config
+    patch: |-
+      - op: replace
+        path: /data/APP_ENV
+        value: prod
+  - target:
+      kind: Deployment
+      name: lowcode-web
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2

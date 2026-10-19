@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: lowcode
+  namespace: argocd
+spec:
+  description: lowCode-platform dev/prod delivery
+  sourceRepos:
+    - http://192.168.5.2:3000/lowcode/vibe-cicd.git
+  destinations:
+    - namespace: lowcode-dev
+      server: https://kubernetes.default.svc
+    - namespace: lowcode-prod
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota

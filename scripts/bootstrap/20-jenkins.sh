@@ -54,6 +54,8 @@ start_jenkins() {
     export JENKINS_HOME
     export JENKINS_ADMIN_USER JENKINS_ADMIN_PASSWORD
     export GITEA_CI_USER GITEA_CI_TOKEN REGISTRY_USER REGISTRY_PASSWORD WEBHOOK_TOKEN
+    export DOCKER_HOST="unix://${RUNTIME}/colima/default/docker.sock"
+    export DOCKER_CONFIG="${RUNTIME}/docker"
     export CASC_JENKINS_CONFIG="$ROOT/ci/jenkins/casc.yaml"
     nohup java -Xms256m -Xmx1024m \
       -Djenkins.install.runSetupWizard=false \

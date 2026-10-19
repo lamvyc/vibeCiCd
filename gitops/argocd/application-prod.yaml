@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lowcode-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: lowcode
+  source:
+    repoURL: http://192.168.5.2:3000/lowcode/vibe-cicd.git
+    targetRevision: main
+    path: gitops/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lowcode-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+  revisionHistoryLimit: 10
