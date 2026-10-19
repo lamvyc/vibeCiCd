@@ -34,6 +34,8 @@ write_git_credentials "$GITEA_ADMIN_USER" "$GITEA_ADMIN_PASSWORD" "127.0.0.1:${G
 git push gitea main >/dev/null
 new_commit=$(git rev-parse HEAD)
 log "rollback pushed: ${new_commit}"
+export KUBECONFIG="${KUBECONFIG:-$RUNTIME/kubeconfig}"
+kubectl -n argocd annotate application "lowcode-${ENV_NAME}" argocd.argoproj.io/refresh=normal --overwrite >/dev/null 2>&1 || true
 
 expected_sha=""
 if [ -n "$prev_tag" ] && [ -d "$RUNTIME/repos/lowcode-platform/.git" ]; then
