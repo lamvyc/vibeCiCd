@@ -1,0 +1,33 @@
+# Jenkins Configuration as Code (JCasC).
+# Secrets are supplied through environment variables from .env.local; this file
+# is safe to commit. The security realm/authorization strategy is initialized by
+# init.groovy.d/00-security.groovy because the first boot has no plugins yet.
+
+jenkins:
+  systemMessage: "vibeCiCd local CI - lowCode-platform"
+  numExecutors: 2
+  mode: NORMAL
+  quietPeriod: 2
+  scmCheckoutRetryCount: 2
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "gitea-ci"
+              username: "${GITEA_CI_USER}"
+              password: "${GITEA_CI_TOKEN}"
+              description: "Gitea CI bot: read app repo, write platform repo"
+          - usernamePassword:
+              scope: GLOBAL
+              id: "registry-creds"
+              username: "${REGISTRY_USER}"
+              password: "${REGISTRY_PASSWORD}"
+              description: "Local Zot registry push credentials"
+          - string:
+              scope: GLOBAL
+              id: "webhook-token"
+              secret: "${WEBHOOK_TOKEN}"
+              description: "Gitea -> Jenkins generic webhook token"
