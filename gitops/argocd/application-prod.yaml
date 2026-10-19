@@ -8,7 +8,7 @@ metadata:
 spec:
   project: lowcode
   source:
-    repoURL: http://192.168.5.2:3000/lowcode/vibe-cicd.git
+    repoURL: http://192.168.5.1:3000/lowcode/vibe-cicd.git
     targetRevision: main
     path: gitops/overlays/prod
   destination:

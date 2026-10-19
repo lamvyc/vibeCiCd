@@ -2,15 +2,17 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: lowcode-dev
 resources:
-  - ../../base
+- ../../base
 images:
-  - name: localhost:5001/lowcode-platform
-    newTag: dev
+- digest: sha256:d10f0b0da7bc22ce697be9803421759b5d2b19d05a57e222e03534bbf4ba21ec
+  name: localhost:5001/lowcode-platform
+  newName: localhost:5001/lowcode-platform
+  newTag: sha-51de0d5e2bff
 patches:
-  - target:
-      kind: ConfigMap
-      name: lowcode-web-config
-    patch: |-
-      - op: replace
-        path: /data/APP_ENV
-        value: dev
+- patch: |-
+    - op: replace
+      path: /data/APP_ENV
+      value: dev
+  target:
+    kind: ConfigMap
+    name: lowcode-web-config

@@ -6,7 +6,7 @@ metadata:
 spec:
   description: lowCode-platform dev/prod delivery
   sourceRepos:
-    - http://192.168.5.2:3000/lowcode/vibe-cicd.git
+    - http://192.168.5.1:3000/lowcode/vibe-cicd.git
   destinations:
     - namespace: lowcode-dev
       server: https://kubernetes.default.svc
