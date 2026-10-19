@@ -15,19 +15,51 @@ CLI_JAR="$RUNTIME/jenkins-cli.jar"
 mkdir -p "$JENKINS_HOME/init.groovy.d"
 cp "$ROOT/ci/jenkins/init.groovy.d/00-security.groovy" "$JENKINS_HOME/init.groovy.d/"
 
+start_update_center() {
+  # Jenkins' SetupWizard/UpdateCenter Java client hangs on TLS in this network.
+  # Serve the official metadata locally so startup completes; plugins are
+  # installed separately from the TUNA mirror with SHA256 verification.
+  mkdir -p "$RUNTIME/uc"
+  if [ -f /tmp/jenkins-uc.json ] && [ ! -f "$RUNTIME/uc/update-center.json" ]; then
+    cp /tmp/jenkins-uc.json "$RUNTIME/uc/update-center.json"
+  fi
+  if ! lsof -nP -iTCP:8899 -sTCP:LISTEN >/dev/null 2>&1; then
+    nohup python3 -m http.server 8899 --bind 127.0.0.1 --directory "$RUNTIME/uc"       > "$LOGS/update-center.log" 2>&1 &
+    echo $! > "$RUNTIME/uc/http.pid"
+    chmod 600 "$RUNTIME/uc/http.pid"
+  fi
+}
+
+write_update_site() {
+  cat > "$JENKINS_HOME/hudson.model.UpdateCenter.xml" <<EOF
+<?xml version='1.1' encoding='UTF-8'?>
+<sites>
+  <site>
+    <id>default</id>
+    <url>http://127.0.0.1:8899/update-center.json</url>
+  </site>
+</sites>
+EOF
+}
+
 start_jenkins() {
   if [ -f "$JENKINS_HOME/jenkins.pid" ] && kill -0 "$(cat "$JENKINS_HOME/jenkins.pid")" 2>/dev/null; then
     log "Jenkins already running (pid $(cat "$JENKINS_HOME/jenkins.pid"))"
     return
   fi
+  start_update_center
+  write_update_site
   log "starting Jenkins on 127.0.0.1:${JENKINS_PORT}"
   (
     export JENKINS_HOME
     export JENKINS_ADMIN_USER JENKINS_ADMIN_PASSWORD
     export GITEA_CI_USER GITEA_CI_TOKEN REGISTRY_USER REGISTRY_PASSWORD WEBHOOK_TOKEN
     export CASC_JENKINS_CONFIG="$ROOT/ci/jenkins/casc.yaml"
-    export JAVA_OPTS="-Xms256m -Xmx1024m -Djenkins.install.runSetupWizard=false -Dfile.encoding=UTF-8"
-    nohup java -jar "$TOOLS/jenkins.war" --httpPort="${JENKINS_PORT}" --httpListenAddress=127.0.0.1 \
+    nohup java -Xms256m -Xmx1024m \
+      -Djenkins.install.runSetupWizard=false \
+      -Djava.net.preferIPv4Stack=true \
+      -Dfile.encoding=UTF-8 \
+      -jar "$TOOLS/jenkins.war" --httpPort="${JENKINS_PORT}" --httpListenAddress=127.0.0.1 \
       >> "$JENKINS_LOG" 2>&1 &
     echo $! > "$JENKINS_HOME/jenkins.pid"
   )
@@ -88,7 +120,7 @@ fi
 
 # Apply JCasC if the plugin is loaded; a restart already applies it, but this
 # makes the script work after a config edit without a manual restart.
-jenkins_cli reload-configuration >/dev/null 2>&1 || warn "reload-configuration failed (JCasC may apply on restart)"
+# JCasC is applied at startup; avoid a blocking CLI reload here.
 
 log "Jenkins ready: ${JENKINS_URL}"
 curl -fsS -u "${JENKINS_ADMIN_USER}:${JENKINS_ADMIN_PASSWORD}" "${JENKINS_URL}api/json?tree=jobs[name]" | jq -c '{jobs: [.jobs[].name]}'

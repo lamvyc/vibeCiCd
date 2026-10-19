@@ -1,0 +1,314 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    timeout(time: 45, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+    disableConcurrentBuilds(abortPrevious: true)
+  }
+
+  parameters {
+    string(name: 'APP_REPO_URL', defaultValue: 'http://127.0.0.1:3000/lowcode/lowcode-platform.git', description: 'Application repository (Gitea)')
+    string(name: 'APP_REF', defaultValue: 'refs/heads/main', description: 'Branch or ref to build')
+    string(name: 'APP_SHA', defaultValue: '', description: 'Optional exact commit SHA (takes precedence over ref)')
+    string(name: 'APP_PR', defaultValue: '0', description: 'Pull request number, 0 for branch builds')
+    booleanParam(name: 'PUBLISH_IMAGE', defaultValue: false, description: 'Push the image to the local registry (main only)')
+    booleanParam(name: 'GITOPS_ENABLED', defaultValue: false, description: 'Update gitops/ and wait for Argo CD (main only)')
+    booleanParam(name: 'DEPLOY_ENABLED', defaultValue: false, description: 'Verify the deployment after GitOps update')
+  }
+
+  environment {
+    APP_NAME = 'lowcode-platform'
+    REGISTRY = 'localhost:5001'
+    IMAGE_REPO = "${REGISTRY}/${APP_NAME}"
+    GOFLAGS = '-mod=mod'
+    CGO_ENABLED = '0'
+    DOCKER_CONFIG = "${WORKSPACE}/.runtime/docker"
+  }
+
+  stages {
+    stage('Checkout platform') {
+      steps {
+        checkout scm
+        sh 'git rev-parse --short HEAD'
+      }
+    }
+
+    stage('Classify') {
+      steps {
+        script {
+          def payloadEvent = env.x_gitea_event ?: ''
+          def prSha = (env.PAYLOAD_PR_HEAD_SHA ?: '').trim()
+          def prRef = (env.PAYLOAD_PR_HEAD_REF ?: '').trim()
+          def isPr = prSha != '' || payloadEvent == 'pull_request'
+
+          env.IS_PR = isPr.toString()
+          env.IS_MAIN = (!isPr && (env.PAYLOAD_REF ?: params.APP_REF) == 'refs/heads/main').toString()
+          env.APP_SHA_RESOLVED = isPr ? prSha : ((env.PAYLOAD_AFTER ?: params.APP_SHA).trim())
+          env.APP_REF_RESOLVED = isPr ? "refs/heads/${prRef}" : ((env.PAYLOAD_REF ?: params.APP_REF).trim())
+          env.APP_REPO_RESOLVED = isPr ? ((env.PAYLOAD_PR_REPO_URL ?: env.PAYLOAD_REPO_URL ?: params.APP_REPO_URL).trim())
+                                            : ((env.PAYLOAD_REPO_URL ?: params.APP_REPO_URL).trim())
+          env.PR_NUMBER_RESOLVED = isPr ? ((env.PAYLOAD_PR_NUMBER ?: params.APP_PR).trim()) : '0'
+
+          if (!(env.APP_REPO_RESOLVED ==~ /^http:\/\/127\.0\.0\.1:3000\/lowcode\/[A-Za-z0-9._-]+\.git$/)) {
+            error "unsupported application repository URL: ${env.APP_REPO_RESOLVED}"
+          }
+          if (env.APP_SHA_RESOLVED == '' && env.APP_REF_RESOLVED == '') {
+            error 'no APP_SHA or APP_REF available'
+          }
+
+          echo "event=${payloadEvent ?: 'manual'} pr=${env.IS_PR} main=${env.IS_MAIN} sha=${env.APP_SHA_RESOLVED} ref=${env.APP_REF_RESOLVED} repo=${env.APP_REPO_RESOLVED}"
+          env.IMAGE_TAG = env.APP_SHA_RESOLVED != '' ? "sha-${env.APP_SHA_RESOLVED.take(12)}" : "build-${env.BUILD_NUMBER}"
+        }
+      }
+    }
+
+    stage('Checkout app') {
+      steps {
+        dir('app') {
+          checkout([$class: 'GitSCM',
+            branches: [[name: env.APP_SHA_RESOLVED != '' ? env.APP_SHA_RESOLVED : env.APP_REF_RESOLVED]],
+            userRemoteConfigs: [[url: env.APP_REPO_RESOLVED, credentialsId: 'gitea-ci']],
+            extensions: [[$class: 'CloneOption', noTags: false, shallow: false, depth: 0, timeout: 20]]
+          ])
+          sh 'git rev-parse HEAD && git log -1 --pretty=%s'
+        }
+      }
+    }
+
+    stage('Report pending') {
+      when {
+        expression { return env.APP_SHA_RESOLVED != null && env.APP_SHA_RESOLVED.length() == 40 }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'gitea-ci', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+          sh '''
+            set +x
+            GITEA_CI_TOKEN="$GIT_PASS" ./scripts/ci/gitea-status.sh pending "CI started" "$APP_SHA_RESOLVED" || true
+          '''
+        }
+      }
+    }
+
+    stage('Toolchain') {
+      steps {
+        sh '''
+          set -euo pipefail
+          echo "node:"; node --version
+          echo "pnpm:"; pnpm --version
+          echo "go:"; go version
+          echo "docker:"; docker version --format '{{.Server.Version}}' || true
+          echo "kubectl:"; kubectl version --client=true 2>/dev/null | head -2 || true
+        '''
+      }
+    }
+
+    stage('Install') {
+      steps {
+        dir('app') {
+          sh 'pnpm install --frozen-lockfile --store-dir "$WORKSPACE/.pnpm-store"'
+        }
+      }
+    }
+
+    stage('Typecheck') {
+      steps {
+        dir('app') {
+          sh 'pnpm -r typecheck'
+        }
+      }
+    }
+
+    stage('Test') {
+      steps {
+        dir('app') {
+          sh 'mkdir -p "$WORKSPACE/reports" && pnpm -r test'
+        }
+      }
+    }
+
+    stage('Build frontend') {
+      steps {
+        dir('app') {
+          sh 'pnpm -r build'
+          sh '''
+            set -euo pipefail
+            test -s packages/playground/dist/index.html
+            echo "dist size:"; du -sh packages/playground/dist
+            find packages/playground/dist -maxdepth 2 -type f | sort | head -20
+          '''
+        }
+      }
+    }
+
+    stage('Quality gate') {
+      steps {
+        sh '''
+          set -euo pipefail
+          test -s app/packages/playground/dist/index.html
+          test -d app/packages/playground/dist/assets
+          echo "quality gate: typecheck + tests + build artifact present"
+        '''
+      }
+    }
+
+    stage('Server test and build') {
+      steps {
+        sh '''
+          set -euo pipefail
+          export GOCACHE="$WORKSPACE/.runtime/go-cache"
+          export GOMODCACHE="$WORKSPACE/.runtime/go-mod"
+          export GOPATH="$WORKSPACE/.runtime/go"
+          mkdir -p "$GOCACHE" "$GOMODCACHE" "$GOPATH"
+          cd platform/server
+          test -z "$(gofmt -l .)" || { echo "gofmt needed"; gofmt -l .; exit 1; }
+          go vet ./...
+          go test ./... -count=1
+          cd "$WORKSPACE"
+          mkdir -p .runtime/image-context
+          rm -rf .runtime/image-context/server .runtime/image-context/static
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -buildvcs=false \
+            -ldflags "-s -w -X main.version=${IMAGE_TAG} -X main.commit=${APP_SHA_RESOLVED} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o .runtime/image-context/server ./platform/server
+          cp -R app/packages/playground/dist .runtime/image-context/static
+          printf '*\\n!server\\n!static\\n' > .runtime/image-context/.dockerignore
+          file .runtime/image-context/server
+        '''
+      }
+    }
+
+    stage('Docker build') {
+      steps {
+        sh '''
+          set -euo pipefail
+          docker build -f platform/docker/Dockerfile \
+            --build-arg APP_VERSION="$IMAGE_TAG" \
+            --build-arg GIT_COMMIT="$APP_SHA_RESOLVED" \
+            --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t "$IMAGE_REPO:$IMAGE_TAG" .runtime/image-context
+          docker image inspect "$IMAGE_REPO:$IMAGE_TAG" --format 'user={{.Config.User}} size={{.Size}}'
+        '''
+      }
+    }
+
+    stage('Image smoke test') {
+      steps {
+        sh '''
+          set -euo pipefail
+          docker rm -f lowcode-smoke >/dev/null 2>&1 || true
+          docker run -d --name lowcode-smoke -p 18080:8080 \
+            -e APP_ENV=ci -e FAIL_READY=false "$IMAGE_REPO:$IMAGE_TAG" >/dev/null
+          cleanup() { docker rm -f lowcode-smoke >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18080/healthz >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/healthz
+          curl -fsS http://127.0.0.1:18080/api/version | tee /tmp/version.json
+          curl -fsS http://127.0.0.1:18080/ | grep -qi '<!doctype html>'
+          curl -fsS http://127.0.0.1:18080/metrics | grep -q 'lowcode_build_info'
+          docker inspect --format '{{.Config.User}}' "$IMAGE_REPO:$IMAGE_TAG" | grep -q '65532'
+          test ! -f app/packages/playground/dist/.env
+        '''
+      }
+    }
+
+    stage('Push image') {
+      when {
+        expression { return env.IS_MAIN == 'true' && params.PUBLISH_IMAGE }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'registry-creds', usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+          sh '''
+            set +x
+            echo "$REG_PASS" | docker login "$REGISTRY" -u "$REG_USER" --password-stdin
+            docker push "$IMAGE_REPO:$IMAGE_TAG"
+            digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE_REPO:$IMAGE_TAG")
+            printf '%s\\n' "$digest" | tee image-digest.txt
+            echo "digest=$digest"
+          '''
+        }
+      }
+    }
+
+    stage('GitOps update') {
+      when {
+        expression { return env.IS_MAIN == 'true' && params.PUBLISH_IMAGE && params.GITOPS_ENABLED }
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'gitea-ci', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+          sh '''
+            set -euo pipefail
+            set +x
+            digest=$(cat image-digest.txt)
+            rm -rf .runtime/gitops-ws
+            git clone --depth 1 "http://${GIT_USER}:${GIT_PASS}@127.0.0.1:3000/lowcode/vibe-cicd.git" .runtime/gitops-ws
+            cd .runtime/gitops-ws
+            git config user.name "jenkins-ci"
+            git config user.email "jenkins-ci@example.local"
+            (cd gitops/overlays/dev && kustomize edit set image "$APP_NAME=$IMAGE_REPO:$IMAGE_TAG@${digest#*@}")
+            if git diff --quiet; then
+              echo "no GitOps change"
+              exit 0
+            fi
+            git add gitops/overlays/dev/kustomization.yaml
+            git commit -m "chore(gitops): ${APP_NAME} ${IMAGE_TAG} [skip ci]"
+            git push origin HEAD:main
+            git log -1 --oneline
+          '''
+        }
+      }
+    }
+
+    stage('Deploy verify') {
+      when {
+        expression { return env.IS_MAIN == 'true' && params.PUBLISH_IMAGE && params.GITOPS_ENABLED && params.DEPLOY_ENABLED }
+      }
+      steps {
+        sh '''
+          set -euo pipefail
+          ./scripts/deploy/verify-deploy.sh dev "$APP_SHA_RESOLVED" "$IMAGE_TAG"
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'reports/**,image-digest.txt', allowEmptyArchive: true, fingerprint: true
+      archiveArtifacts artifacts: 'app/packages/playground/dist/**', allowEmptyArchive: true
+    }
+    failure {
+      sh '''
+        set +e
+        mkdir -p artifacts
+        {
+          echo "build=${BUILD_NUMBER} job=${JOB_NAME} url=${BUILD_URL}"
+          echo "sha=${APP_SHA_RESOLVED} ref=${APP_REF_RESOLVED} event=${x_gitea_event:-manual}"
+          echo "image=${IMAGE_REPO}:${IMAGE_TAG}"
+          echo "stage/result: see Jenkins console"
+        } > "artifacts/failure-${BUILD_NUMBER}.txt"
+      '''
+      archiveArtifacts artifacts: 'artifacts/**', allowEmptyArchive: true
+      script {
+        if (env.APP_SHA_RESOLVED != null && env.APP_SHA_RESOLVED.length() == 40) {
+          withCredentials([usernamePassword(credentialsId: 'gitea-ci', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh 'set +x; GITEA_CI_TOKEN="$GIT_PASS" ./scripts/ci/gitea-status.sh failure "CI failed" "$APP_SHA_RESOLVED" || true'
+          }
+        }
+      }
+    }
+    success {
+      script {
+        if (env.APP_SHA_RESOLVED != null && env.APP_SHA_RESOLVED.length() == 40) {
+          withCredentials([usernamePassword(credentialsId: 'gitea-ci', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+            sh 'set +x; GITEA_CI_TOKEN="$GIT_PASS" ./scripts/ci/gitea-status.sh success "CI passed" "$APP_SHA_RESOLVED" || true'
+          }
+        }
+      }
+      echo "CI succeeded for ${APP_REPO_RESOLVED}@${APP_SHA_RESOLVED} (main=${env.IS_MAIN})"
+    }
+  }
+}

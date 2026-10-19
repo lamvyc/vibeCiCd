@@ -1,0 +1,139 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job">
+  <description>lowCode-platform CI: pnpm typecheck/test/build, scratch web image, optional Zot push and GitOps update.</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>APP_REPO_URL</name>
+          <description>Application repository (Gitea, loopback only)</description>
+          <defaultValue>http://127.0.0.1:3000/lowcode/lowcode-platform.git</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>APP_REF</name>
+          <description>Branch/ref to build for manual runs</description>
+          <defaultValue>refs/heads/main</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>APP_SHA</name>
+          <description>Optional exact commit SHA (manual runs)</description>
+          <defaultValue></defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>APP_PR</name>
+          <description>Pull request number for manual runs (0 = branch)</description>
+          <defaultValue>0</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>PUBLISH_IMAGE</name>
+          <description>Push image to the local Zot registry (main only)</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>GITOPS_ENABLED</name>
+          <description>Update gitops/ and wait for Argo CD (main only)</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>DEPLOY_ENABLED</name>
+          <description>Verify the deployment after GitOps update</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <org.jenkinsci.plugins.gwt.GenericTrigger>
+          <spec></spec>
+          <genericVariables>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_REPO_URL</key>
+              <value>$.repository.clone_url</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue>http://127.0.0.1:3000/lowcode/lowcode-platform.git</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_AFTER</key>
+              <value>$.after</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue></defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_REF</key>
+              <value>$.ref</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue></defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_PR_HEAD_SHA</key>
+              <value>$.pull_request.head.sha</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue></defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_PR_HEAD_REF</key>
+              <value>$.pull_request.head.ref</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue></defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_PR_NUMBER</key>
+              <value>$.number</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue>0</defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+            <org.jenkinsci.plugins.gwt.GenericVariable>
+              <key>PAYLOAD_PR_REPO_URL</key>
+              <value>$.pull_request.head.repo.clone_url</value>
+              <expressionType>JSONPath</expressionType>
+              <defaultValue></defaultValue>
+            </org.jenkinsci.plugins.gwt.GenericVariable>
+          </genericVariables>
+          <genericHeaderVariables>
+            <org.jenkinsci.plugins.gwt.GenericHeaderVariable>
+              <key>X-Gitea-Event</key>
+            </org.jenkinsci.plugins.gwt.GenericHeaderVariable>
+          </genericHeaderVariables>
+          <tokenCredentialId>webhook-token</tokenCredentialId>
+          <causeString>Gitea $x_gitea_event for $PAYLOAD_REF ($PAYLOAD_AFTER)</causeString>
+          <overrideQuietPeriod>false</overrideQuietPeriod>
+          <allowSeveralTriggersPerBuild>false</allowSeveralTriggersPerBuild>
+          <silentResponse>false</silentResponse>
+          <shouldNotFlattern>false</shouldNotFlattern>
+          <printPostContent>false</printPostContent>
+          <printContributedVariables>true</printContributedVariables>
+          <regexpFilterExpression></regexpFilterExpression>
+          <regexpFilterText></regexpFilterText>
+        </org.jenkinsci.plugins.gwt.GenericTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps">
+    <scm class="hudson.plugins.git.GitSCM" plugin="git">
+      <configVersion>2</configVersion>
+      <userRemoteConfigs>
+        <hudson.plugins.git.UserRemoteConfig>
+          <url>http://127.0.0.1:3000/lowcode/vibe-cicd.git</url>
+          <credentialsId>gitea-ci</credentialsId>
+        </hudson.plugins.git.UserRemoteConfig>
+      </userRemoteConfigs>
+      <branches>
+        <hudson.plugins.git.BranchSpec>
+          <name>*/main</name>
+        </hudson.plugins.git.BranchSpec>
+      </branches>
+      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+      <submoduleCfg class="empty-list"/>
+      <extensions/>
+    </scm>
+    <scriptPath>ci/Jenkinsfile</scriptPath>
+    <lightweight>true</lightweight>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>
