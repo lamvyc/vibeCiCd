@@ -1,3 +1,9 @@
+> **实施变更（2026-10-20）**：应用已确认为现有 `lowCode-platform`（Vue/pnpm monorepo），
+> 采用「应用仓库 + 平台/GitOps 仓库」两仓库模型，镜像由 Go 静态服务器包装前端 `dist`。
+> 本文件保留阶段 0 的原始设计基线；凡涉及 Go `release-demo`、单仓库、Go 二进制镜像的描述，
+> 以 [`../phase-1/01-app-assessment.md`](../phase-1/01-app-assessment.md) 和
+> [`../verification/README.md`](../verification/README.md) 为准。
+
 # 阶段 0：项目方案设计
 
 > 状态：**待确认（Phase 0 gate）**。本文件是设计，不是实施结果；所有标记「已验证」的内容必须附命令输出，见 `docs/phase-0/04-acceptance.md`。

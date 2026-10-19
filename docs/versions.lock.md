@@ -46,5 +46,6 @@
 | 应用 `lowcode-platform` | `3e9cb2f34287b92c3a2d12ab422a35c874d0664b` | PR #1 merge 到 main |
 | 应用（失败演练） | `2c1dc0788184b95b0f696ad44486ace211cc4685` | 故意失败测试，未发布 |
 | 平台/GitOps `vibe-cicd` | `9428f581b44e981d5e2826107ee1d3dafce154cc` | 回滚坏镜像演练后的 main（含 revert） |
+| 平台/GitOps 文档 | `299c4a56f1ec85e68f24e61f22f8ddead88cd8db` | 验收记录、runbook、版本与 bootstrap 脚本 |
 
 > 平台仓库后续还会增加文档/脚本提交；以 Gitea `main` 最新提交为准。
