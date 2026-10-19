@@ -32,17 +32,17 @@
         <hudson.model.BooleanParameterDefinition>
           <name>PUBLISH_IMAGE</name>
           <description>Push image to the local Zot registry (main only)</description>
-          <defaultValue>false</defaultValue>
+          <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
           <name>GITOPS_ENABLED</name>
           <description>Update gitops/ and wait for Argo CD (main only)</description>
-          <defaultValue>false</defaultValue>
+          <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
         <hudson.model.BooleanParameterDefinition>
           <name>DEPLOY_ENABLED</name>
           <description>Verify the deployment after GitOps update</description>
-          <defaultValue>false</defaultValue>
+          <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>

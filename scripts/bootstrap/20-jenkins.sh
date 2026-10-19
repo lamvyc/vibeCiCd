@@ -71,13 +71,6 @@ start_jenkins() {
   chmod 600 "$JENKINS_HOME/jenkins.pid"
 }
 
-mkdir -p "$RUNTIME/corepack"
-if command -v corepack >/dev/null 2>&1; then
-  COREPACK_HOME="$RUNTIME/corepack" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    corepack prepare pnpm@9.15.0 --activate >/dev/null 2>&1 || \
-    warn "corepack prepare pnpm@9.15.0 failed; Jenkins may use a different pnpm"
-fi
-
 start_jenkins
 log "waiting for Jenkins (this can take 1-2 minutes)"
 wait_for_http "${JENKINS_URL}login" 180
