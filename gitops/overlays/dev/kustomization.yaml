@@ -8,6 +8,10 @@ images:
   name: localhost:5001/lowcode-platform
   newName: localhost:5001/lowcode-platform
   newTag: sha-51de0d5e2bff
+- digest: sha256:31dec43568879594eb6456f5aa35b1ed6bd32956de30e5e0fe2dc7167c94b6ac
+  name: lowcode-platform
+  newName: localhost:5001/lowcode-platform
+  newTag: sha-3e9cb2f34287
 patches:
 - patch: |-
     - op: replace
