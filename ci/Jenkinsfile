@@ -257,6 +257,8 @@ pipeline {
             git commit -m "chore(gitops): ${APP_NAME} ${IMAGE_TAG} [skip ci]"
             git push origin HEAD:main
             git log -1 --oneline
+            # Argo CD polls every 3 minutes by default; ask it to reconcile now.
+            kubectl -n argocd annotate application lowcode-dev argocd.argoproj.io/refresh=normal --overwrite || true
           '''
         }
       }
