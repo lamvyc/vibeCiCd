@@ -48,12 +48,21 @@ def remote_size(url: str) -> int:
     return sizes[-1]
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
+def file_hash(path: Path, algorithm: str) -> str:
+    h = hashlib.new(algorithm)
     with path.open("rb") as f:
         for block in iter(lambda: f.read(1024 * 1024), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def hash_algorithm(expected: str) -> str:
+    value = expected.strip().lower()
+    if len(value) == 64:
+        return "sha256"
+    if len(value) == 128:
+        return "sha512"
+    raise SystemExit(f"unsupported checksum length {len(value)}; expected sha256/sha512")
 
 
 def download_chunk(url: str, start: int, end: int, dest: Path, attempts: int = 4) -> None:
@@ -92,9 +101,11 @@ def main() -> int:
 
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
+    algorithm = hash_algorithm(args.sha256)
+    expected = args.sha256.lower()
     if out.exists():
-        if sha256_file(out) == args.sha256.lower():
-            print(f"already present and verified: {out}")
+        if file_hash(out, algorithm) == expected:
+            print(f"already present and verified ({algorithm}): {out}")
             return 0
         print(f"existing file has wrong checksum, replacing: {out}", file=sys.stderr)
         out.unlink()
@@ -126,11 +137,11 @@ def main() -> int:
             for _, _, part in ranges:
                 with part.open("rb") as src:
                     shutil.copyfileobj(src, dst)
-        actual = sha256_file(out)
-        if actual != args.sha256.lower():
+        actual = file_hash(out, algorithm)
+        if actual != expected:
             out.unlink(missing_ok=True)
-            raise RuntimeError(f"sha256 mismatch: got {actual}, want {args.sha256.lower()}")
-        print(f"verified sha256={actual}", flush=True)
+            raise RuntimeError(f"{algorithm} mismatch: got {actual}, want {expected}")
+        print(f"verified {algorithm}={actual}", flush=True)
         return 0
     finally:
         shutil.rmtree(parts_dir, ignore_errors=True)

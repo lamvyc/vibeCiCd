@@ -12,7 +12,13 @@ TOOLS="${ROOT}/.tools"
 LOGS="${RUNTIME}/logs"
 ENV_FILE="${ROOT}/.env.local"
 
-mkdir -p "$RUNTIME" "$TOOLS" "$LOGS"
+mkdir -p "$RUNTIME" "$TOOLS" "$LOGS" "$TOOLS/bin"
+export PATH="$TOOLS/bin:$PATH"
+export COLIMA_HOME="${COLIMA_HOME:-$RUNTIME/colima}"
+export LIMA_HOME="${LIMA_HOME:-$RUNTIME/lima}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$RUNTIME/cache}"
+export DOCKER_CONFIG="${DOCKER_CONFIG:-$RUNTIME/docker}"
+export DOCKER_HOST="${DOCKER_HOST:-unix://$RUNTIME/colima/default/docker.sock}"
 
 log()  { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
 warn() { printf '[%s] WARN: %s\n' "$(date '+%H:%M:%S')" "$*" >&2; }

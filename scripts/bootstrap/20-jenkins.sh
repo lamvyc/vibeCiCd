@@ -56,6 +56,9 @@ start_jenkins() {
     export GITEA_CI_USER GITEA_CI_TOKEN REGISTRY_USER REGISTRY_PASSWORD WEBHOOK_TOKEN
     export DOCKER_HOST="unix://${RUNTIME}/colima/default/docker.sock"
     export DOCKER_CONFIG="${RUNTIME}/docker"
+    export COREPACK_HOME="${RUNTIME}/corepack"
+    export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    export KUBECONFIG="${RUNTIME}/kubeconfig"
     export CASC_JENKINS_CONFIG="$ROOT/ci/jenkins/casc.yaml"
     nohup java -Xms256m -Xmx1024m \
       -Djenkins.install.runSetupWizard=false \
@@ -67,6 +70,13 @@ start_jenkins() {
   )
   chmod 600 "$JENKINS_HOME/jenkins.pid"
 }
+
+mkdir -p "$RUNTIME/corepack"
+if command -v corepack >/dev/null 2>&1; then
+  COREPACK_HOME="$RUNTIME/corepack" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    corepack prepare pnpm@9.15.0 --activate >/dev/null 2>&1 || \
+    warn "corepack prepare pnpm@9.15.0 failed; Jenkins may use a different pnpm"
+fi
 
 start_jenkins
 log "waiting for Jenkins (this can take 1-2 minutes)"
@@ -125,4 +135,4 @@ fi
 # JCasC is applied at startup; avoid a blocking CLI reload here.
 
 log "Jenkins ready: ${JENKINS_URL}"
-curl -fsS -u "${JENKINS_ADMIN_USER}:${JENKINS_ADMIN_PASSWORD}" "${JENKINS_URL}api/json?tree=jobs[name]" | jq -c '{jobs: [.jobs[].name]}'
+curl -fsS -u "${JENKINS_ADMIN_USER}:${JENKINS_ADMIN_PASSWORD}" "${JENKINS_URL}api/json?tree=jobs%5Bname%5D" | jq -c '{jobs: [.jobs[].name]}'

@@ -96,7 +96,7 @@ pipeline {
         sh '''
           set -euo pipefail
           echo "node:"; node --version
-          echo "pnpm:"; pnpm --version
+          echo "pnpm:"; (cd app && pnpm --version)
           echo "go:"; go version
           echo "docker:"; docker version --format '{{.Server.Version}}' || true
           echo "kubectl:"; kubectl version --client=true 2>/dev/null | head -2 || true

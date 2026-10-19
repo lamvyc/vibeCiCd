@@ -13,7 +13,7 @@ mkdir -p "$REG_HOME/data"
 
 if [ ! -s "$REG_HOME/htpasswd" ]; then
   umask 077
-  hash=$(openssl passwd -apr1 "$REGISTRY_PASSWORD")
+  hash=$(openssl passwd -6 "$REGISTRY_PASSWORD")
   printf '%s:%s\n' "$REGISTRY_USER" "$hash" > "$REG_HOME/htpasswd"
   chmod 600 "$REG_HOME/htpasswd"
   log "generated htpasswd for ${REGISTRY_USER}"
