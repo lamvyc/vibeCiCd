@@ -25,6 +25,7 @@
 | Prometheus 指标 | **已实现且已验证** | `up{job="lowcode-web"} = 1`；target healthy；规则已加载 |
 | 日志/排查 | **部分实现** | 应用 JSON 日志、Jenkins 控制台、K8s events 可用；`kubectl logs` 受节点 IP 限制，见限制文档 |
 | Webhook 直连（不依赖桥） | **受环境限制** | egress policy；不伪造为已验证 |
+| Jenkins 运行形态迁移（WAR→官方镜像容器，保留数据与回滚） | **已实现且已验证** | build #14 在容器内全阶段 SUCCESS；控制器自检 build #4；切换后 8081 正常；详见 `docs/verification/jenkins-container.md` |
 
 ## 2. 关键构建与版本
 
@@ -32,8 +33,8 @@
 |---|---|
 | 应用仓库 main | `3e9cb2f34287b92c3a2d12ab422a35c874d0664b`（PR #1 merge） |
 | 最终镜像 | `localhost:5001/lowcode-platform:sha-3e9cb2f34287@sha256:cd4ee6d44b181c007596eea66dd2e796f516d38849dfd9418238f66b88d6a1c6` |
-| Jenkins | 2.580.1，Java 21.0.12，77 个插件 |
-| CI | build #11 `SUCCESS`（全 16 阶段/含 GitOps/Deploy verify） |
+| Jenkins | 2.580.1，Java 21.0.12，77 个插件；运行形态为官方镜像容器（`vibe-cicd/jenkins:2.580.1-tools-1`），WAR 形态保留可回滚 |
+| CI | build #11 `SUCCESS`（WAR 时代）；build #14 `SUCCESS`（容器化控制器，全 17 阶段/含 GitOps/Deploy verify） |
 | 失败演练 | build #12 `FAILURE`，Test 阶段 |
 | Argo CD | v3.5.5（Helm chart 10.10.5） |
 | K8s | k3s v1.35.0+k3s1，单节点 `colima` Ready |

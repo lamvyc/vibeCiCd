@@ -1,0 +1,7 @@
+# This build context is intentionally minimal: the derived Jenkins image
+# (infra/jenkins/Dockerfile) copies tools from builder images and downloads
+# pinned binaries; it uses no local files. Without this, `docker build .` from
+# the repo root would stream the whole .runtime tree (JENKINS_HOME copies and
+# the Colima datadisk) into the context and fail.
+*
+!infra/jenkins/Dockerfile

@@ -21,7 +21,7 @@
 
 | 服务 | 版本/摘要 |
 |---|---|
-| Jenkins | 2.580.1；77 个插件；JCasC；Java 21 |
+| Jenkins | 2.580.1；77 个插件；JCasC；Java 21。运行形态为官方镜像容器 `vibe-cicd/jenkins:2.580.1-tools-1`，基础镜像 `jenkins/jenkins:2.580.1-lts-jdk21@sha256:a660310e39ade10631f774bacd5219de767dfd08947ea5c32a739b5e5bb382c1`；工具阶段镜像 `node:24.18.0-trixie-slim@sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573`、`golang:1.27.2-trixie@sha256:47667934874913a449b96faa7ef4777fa285d9ec29126ee80ed61c45b7cccf0e`、`docker:29.9.1-cli@sha256:6fae2214c3121a28d5aa639d09032f61310b7c9c75ffbad1025f261a1b621800` |
 | Gitea | 28.2.0；`ghcr.io/go-gitea/gitea@sha256:30777c91280d973fa02be48b1ade735bd6859e8f6f7af3b4444d519437852504` |
 | k3s / K8s | v1.35.0+k3s1 / v1.35.0；单节点 `colima` |
 | k3s 二进制来源 | `ghcr.io/k3s-io/k3s@sha256:10464930d9bad0c06aef9830e84cd4019c24ed44d5eab594efb7416119097248` 提取 `/bin/k3s` + `/bin/cni` |
@@ -37,7 +37,7 @@
 | tag | digest | 说明 |
 |---|---|---|
 | `sha-51de0d5e2bff` | `sha256:d10f0b0da7bc22ce697be9803421759b5d2b19d05a57e222e03534bbf4ba21ec` | 首次完整 CI 推送（build #5） |
-| `sha-3e9cb2f34287` | `sha256:cd4ee6d44b181c007596eea66dd2e796f516d38849dfd9418238f66b88d6a1c6` | PR #1 合并后的最终部署（build #11） |
+| `sha-3e9cb2f34287` | `sha256:3f48982e2354b00a7117256051428c798fa54b8292c2f6f9f5c28b874ea3900e` | 容器化 Jenkins 全链路复验（build #14）；该 tag 早前指向 `sha256:cd4ee6d4…`（build #11），tag 可变、部署固定 digest |
 
 ## 关键 Git 提交
 
