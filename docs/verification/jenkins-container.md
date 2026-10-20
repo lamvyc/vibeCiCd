@@ -12,7 +12,7 @@
 | 宿主访问 | SSH local forward `127.0.0.1:8081 → VM:8081`（与控制口隧道同一机制） |
 | 数据 | 全量副本 `.runtime/jenkins-container`（1.6 GB，含 jobs、plugins、users、secrets、build history）；原 WAR 数据 `.runtime/jenkins` 未改动 |
 | 回滚 | `JENKINS_RUNTIME=war ./scripts/bootstrap/90-start-all.sh`（原 WAR 与数据保持可用） |
-| 全链路验证 | build #14 全阶段 SUCCESS；镜像推送、GitOps 提交、Argo 同步、部署健康验证全部通过 |
+| 全链路验证 | build #14（手动指定 SHA）与 build #17（Gitea push → 桥 → 容器控制器，真实触发路径）均全阶段 SUCCESS；镜像推送、GitOps 提交、Argo 同步、部署健康验证全部通过 |
 | 控制器自检 | `migration-selfcheck` job（build #4 SUCCESS）：工具链、Gitea 凭据、pnpm 安装、Zot 推拉、k3s/Argo 可达 |
 
 ## 2. 运行时差异与处置
@@ -78,6 +78,35 @@ API: numExecutors=2, jobs=[lowcode-platform(blue), migration-selfcheck]
 lastBuild=14, lastSuccessful=14
 jenkins-cli who-am-i → Authenticated as: admin
 ```
+
+### 3.6 真实触发路径（Gitea push → 桥 → 容器控制器，build #17）
+
+为验证切换后的生产触发链路，向应用仓库推送 `docs/ci-runtime.md`（分支 → PR #2 → 合并）：
+
+```
+21:18:21 桥: triggered branch feature/ci-runtime-note@3eb89ad9fbda http=201
+21:18:21 桥: triggered PR #2@3eb89ad9fbda kind=pull_request http=201
+          → build #15（分支）/ #16（PR）SUCCESS，commit status ci/jenkins=success
+21:29:23 桥: triggered branch main@dde1a56ff5b9 http=201
+          → build #17 全 18 阶段 SUCCESS
+```
+
+build #17 结果：
+
+```
+digest=localhost:5001/lowcode-platform@sha256:6c60811e97e497a5685b6351b49a3a12478cb4de0c2b572b3ed62dc4084e36e7
+[main cbe613d] chore(gitops): lowcode-platform sha-dde1a56ff5b9 [skip ci]
+deployment verified: .runtime/deployments/dev-sha-dde1a56ff5b9.json
+gitea status: ci/jenkins=success sha=dde1a56ff5b901e525a729cd252dd2200a4fcc0f
+Finished: SUCCESS
+```
+
+独立核对：Argo `Synced Healthy`（revision `cbe613d`）；Deployment 固定
+`sha-dde1a56ff5b9@sha256:6c60811e…`；Zot `Docker-Content-Digest` 相同；Pod 1/1 Running；
+`GET /api/version` → `{"commit":"dde1a56ff5b9…","version":"sha-dde1a56ff5b9"}`。
+
+另外确认分支保护仍生效：直接 push `main` 被 pre-receive hook 拒绝，必须先经 PR 且
+`ci/jenkins` 通过后才能合并——迁移没有削弱这道门禁。
 
 ## 4. 回滚
 

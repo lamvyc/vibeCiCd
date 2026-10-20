@@ -38,14 +38,18 @@
 |---|---|---|
 | `sha-51de0d5e2bff` | `sha256:d10f0b0da7bc22ce697be9803421759b5d2b19d05a57e222e03534bbf4ba21ec` | 首次完整 CI 推送（build #5） |
 | `sha-3e9cb2f34287` | `sha256:3f48982e2354b00a7117256051428c798fa54b8292c2f6f9f5c28b874ea3900e` | 容器化 Jenkins 全链路复验（build #14）；该 tag 早前指向 `sha256:cd4ee6d4…`（build #11），tag 可变、部署固定 digest |
+| `sha-dde1a56ff5b9` | `sha256:6c60811e97e497a5685b6351b49a3a12478cb4de0c2b572b3ed62dc4084e36e7` | 真实触发路径复验（Gitea push → 桥 → 容器控制器，build #17）；当前 dev 部署 |
 
 ## 关键 Git 提交
 
 | 仓库 | commit | 说明 |
 |---|---|---|
-| 应用 `lowcode-platform` | `3e9cb2f34287b92c3a2d12ab422a35c874d0664b` | PR #1 merge 到 main |
+| 应用 `lowcode-platform` | `dde1a56ff5b901e525a729cd252dd2200a4fcc0f` | PR #2 merge 到 main；build #17 构建并部署 |
+| 应用（前一次） | `3e9cb2f34287b92c3a2d12ab422a35c874d0664b` | PR #1 merge 到 main |
 | 应用（失败演练） | `2c1dc0788184b95b0f696ad44486ace211cc4685` | 故意失败测试，未发布 |
-| 平台/GitOps `vibe-cicd` | `9428f581b44e981d5e2826107ee1d3dafce154cc` | 回滚坏镜像演练后的 main（含 revert） |
+| 平台/GitOps `vibe-cicd` | `cbe613d3eaf2614c283b751de0daa892baeb0cd9` | build #17 写入的 GitOps 提交（Argo 当前同步 revision） |
+| 平台/GitOps 迁移 | `0d31077d` | Jenkins 官方镜像迁移（工具镜像、启动脚本、运行时切换、文档） |
+| 平台/GitOps 历史 | `9428f581b44e981d5e2826107ee1d3dafce154cc` | 回滚坏镜像演练后的 main（含 revert） |
 | 平台/GitOps 文档 | `299c4a56f1ec85e68f24e61f22f8ddead88cd8db` | 验收记录、runbook、版本与 bootstrap 脚本 |
 
 > 平台仓库后续还会增加文档/脚本提交；以 Gitea `main` 最新提交为准。

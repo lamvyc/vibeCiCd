@@ -31,10 +31,10 @@
 
 | 项 | 值 |
 |---|---|
-| 应用仓库 main | `3e9cb2f34287b92c3a2d12ab422a35c874d0664b`（PR #1 merge） |
-| 最终镜像 | `localhost:5001/lowcode-platform:sha-3e9cb2f34287@sha256:cd4ee6d44b181c007596eea66dd2e796f516d38849dfd9418238f66b88d6a1c6` |
+| 应用仓库 main | `dde1a56ff5b901e525a729cd252dd2200a4fcc0f`（PR #2 merge；此前 `3e9cb2f34287…`） |
+| 最终镜像 | `localhost:5001/lowcode-platform:sha-dde1a56ff5b9@sha256:6c60811e97e497a5685b6351b49a3a12478cb4de0c2b572b3ed62dc4084e36e7` |
 | Jenkins | 2.580.1，Java 21.0.12，77 个插件；运行形态为官方镜像容器（`vibe-cicd/jenkins:2.580.1-tools-1`），WAR 形态保留可回滚 |
-| CI | build #11 `SUCCESS`（WAR 时代）；build #14 `SUCCESS`（容器化控制器，全 17 阶段/含 GitOps/Deploy verify） |
+| CI | build #14 `SUCCESS`（容器化控制器，手动指定 SHA，全 17 阶段/含 GitOps/Deploy verify）；build #17 `SUCCESS`（Gitea push → 桥 → 容器控制器，全 18 阶段） |
 | 失败演练 | build #12 `FAILURE`，Test 阶段 |
 | Argo CD | v3.5.5（Helm chart 10.10.5） |
 | K8s | k3s v1.35.0+k3s1，单节点 `colima` Ready |
