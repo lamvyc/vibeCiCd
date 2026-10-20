@@ -169,7 +169,17 @@ for _ in $(seq 1 240); do
 done
 [ -n "$ok" ] || { docker logs --tail 40 "$NAME" 2>&1 | sed 's/^/  /'; die "container Jenkins did not become ready; see logs above"; }
 
-VM_IP="$(colima ssh -- ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1 || true)"
-log "Jenkins container ready: http://127.0.0.1:${PORT}/ (inside VM)"
-[ -n "${VM_IP:-}" ] && log "from the host: http://${VM_IP}:${PORT}/"
+# The container listens in the VM; the host reaches it only through the SSH
+# local forward that 90-start-all.sh (or a manual `ssh -O forward -L`) installs.
+# The VM's own address is NOT routable from the host, so do not advertise it.
+log "Jenkins container ready inside VM: http://127.0.0.1:${PORT}/"
+SSH_CONFIG="$LIMA_HOME/colima/ssh.config"
+SSH_SOCK="$LIMA_HOME/colima/ssh.sock"
+if ssh -F "$SSH_CONFIG" -S "$SSH_SOCK" -O check lima-colima >/dev/null 2>&1 \
+   && ssh -F "$SSH_CONFIG" -S "$SSH_SOCK" -O forward -L "127.0.0.1:${PORT}:127.0.0.1:${PORT}" lima-colima >/dev/null 2>&1; then
+  log "from the host: http://127.0.0.1:${PORT}/ (SSH local forward)"
+else
+  warn "no SSH local forward for ${PORT}; run scripts/bootstrap/90-start-all.sh or:"
+  warn "  ssh -F $SSH_CONFIG -S $SSH_SOCK -O forward -L 127.0.0.1:${PORT}:127.0.0.1:${PORT} lima-colima"
+fi
 log "follow logs with: docker logs -f $NAME"
