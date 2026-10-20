@@ -11,7 +11,7 @@
 应用仓库 (Gitea, VM)  ──提交/PR──▶  CI 桥 (轮询 Gitea API)
         │                              │
         │                              ▼
-        │                     Jenkins 2.580.1 (macOS, Java 21)
+        │                     Jenkins 2.580.1（官方镜像容器，VM 内）
         │                     typecheck + 538 tests + build
         │                     + Go server tests + 质量门禁
         │                              │
@@ -53,7 +53,7 @@
 | 组件 | 位置 | 端口 |
 |---|---|---|
 | Gitea | Colima VM 容器（host network） | 宿主 3000 |
-| Jenkins | macOS 原生 | 8081 |
+| Jenkins | Colima VM 容器（官方镜像 + 派生工具镜像，host network） | 宿主 8081（SSH local forward） |
 | Zot | VM Docker | 5001 |
 | k3s API | VM → SSH tunnel | 宿主 16443 |
 | Argo CD | k3s | port-forward 8443 |
@@ -64,20 +64,76 @@
 
 ## 4. 快速开始
 
+**前置**：macOS + Homebrew，已装 `colima`、`docker`、`kubectl`、`helm`、`kustomize`、`jq`、
+`curl`、`openssl`、`ssh`、`python3`、`java`（WAR 回滚与 CLI 用）。全部为本地服务，不需要公网域名。
+
+**首次（本机已初始化过则跳过）**：
+
+```bash
+cd /Users/unravel/vibeCiCd
+./scripts/bootstrap/00-env.sh        # 生成 .env.local（随机本地凭据，mode 600；已存在则保留）
+./scripts/bootstrap/10-gitea.sh      # 初始化 Gitea 数据（用户/仓库/schema/token）
+kill "$(cat .runtime/gitea/gitea.pid)" 2>/dev/null || true   # 10 是宿主原生进程，需让出 3000
+./scripts/bootstrap/15-gitea-container.sh                    # 同一数据目录改由 VM 容器提供
+./scripts/bootstrap/20-repos.sh      # 推送应用仓库与平台仓库
+./scripts/bootstrap/30-wire.sh       # 凭据、分支保护、webhook（webhook 受沙箱限制）
+```
+
+> 只有 `.runtime/gitea` 为空时才需要这一节；已有数据直接跳到「日常启动」。
+> `15-gitea-container.sh` 不会替你停宿主 Gitea，若宿主仍占用 3000，容器转发会静默失败。
+
+**日常启动（一条命令，幂等）**：
+
 ```bash
 cd /Users/unravel/vibeCiCd
 ./scripts/bootstrap/90-start-all.sh
 ```
 
-然后：
+顺序：Colima → Zot → k3s/API 隧道 → Gitea → Jenkins 转发 → Jenkins（容器）→ Argo CD →
+Prometheus → CI 桥。Jenkins 形态可切换：默认容器（官方镜像）；
+`JENKINS_RUNTIME=war ./scripts/bootstrap/90-start-all.sh` 回滚到宿主 WAR。
+
+**启动后自检**：
 
 ```bash
-./scripts/deploy/verify-deploy.sh dev 3e9cb2f34287b92c3a2d12ab422a35c874d0664b sha-3e9cb2f34287
-kubectl -n argocd get applications
-kubectl -n monitoring port-forward svc/prometheus 19090:9090
+set -a; . ./.env.local; set +a
+curl -fsS http://127.0.0.1:3000/api/v1/version                      # Gitea
+curl -fsS -u "$JENKINS_ADMIN_USER:$JENKINS_ADMIN_PASSWORD" \
+     http://127.0.0.1:8081/api/json | jq '{jobs:[.jobs[].name]}'     # Jenkins
+curl -fsS -u "$REGISTRY_USER:$REGISTRY_PASSWORD" \
+     http://127.0.0.1:5001/v2/_catalog                              # Zot
+export KUBECONFIG=$PWD/.runtime/kubeconfig
+kubectl get nodes
+kubectl -n argocd get applications                                  # 期望 Synced/Healthy
+kubectl -n lowcode-dev get deploy,pods
+
+# 当前部署的业务验证（用最新 main 的 SHA 与 tag）
+./scripts/deploy/verify-deploy.sh dev <full-sha> sha-<short-sha>
 ```
 
-完整启动/停止/回滚/排错：[`docs/runbook.md`](docs/runbook.md)。
+**触发一次 CI**（二选一）：
+
+```bash
+# A. 真实路径：向应用仓库推分支/PR，CI 桥在数秒内触发；main 受保护，需 PR + ci/jenkins 通过
+# B. 手动：必须带完整 40 位 SHA，否则 Go 阶段会因 set -u 报 parameter not set
+jenkins_cli() { java -jar .runtime/jenkins-cli.jar -s http://127.0.0.1:8081/ \
+  -auth "$JENKINS_ADMIN_USER:$JENKINS_ADMIN_PASSWORD" "$@"; }
+jenkins_cli build lowcode-platform -p APP_REF=refs/heads/main -p APP_SHA=<full-sha> \
+  -p PUBLISH_IMAGE=true -p GITOPS_ENABLED=true -p DEPLOY_ENABLED=true
+```
+
+**停止 / 回滚**：
+
+```bash
+./scripts/bootstrap/21-jenkins-container.sh stop   # 停 Jenkins 容器
+./scripts/bootstrap/60-bridge.sh stop              # 停 CI 桥
+colima stop                                        # 停 VM（数据保留）
+./scripts/deploy/rollback.sh dev                   # 回滚一次 GitOps 部署
+JENKINS_RUNTIME=war ./scripts/bootstrap/90-start-all.sh   # 回滚 Jenkins 运行形态
+```
+
+完整启动/停止/回滚/排错：[`docs/runbook.md`](docs/runbook.md)；
+Jenkins 容器化迁移记录：[`docs/verification/jenkins-container.md`](docs/verification/jenkins-container.md)。
 
 ## 5. 仓库结构
 
